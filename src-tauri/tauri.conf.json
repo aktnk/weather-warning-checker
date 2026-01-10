@@ -1,0 +1,22 @@
+{
+  "productName": "Weather Checker",
+  "version": "0.1.0",
+  "identifier": "com.weatherchecker.app",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devUrl": "about:blank",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# Data directories
+data/
+logs/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Tauri
+/dist/
+/src-tauri/target/
+
+# Node
+node_modules/
+dist-ssr/
+*.local
+
+# OS
+.DS_Store
+Thumbs.db

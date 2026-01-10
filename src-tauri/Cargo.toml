@@ -1,0 +1,48 @@
+[package]
+name = "tauri-weather-checker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Tauri framework
+tauri = { version = "2.1" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.42", features = ["full"] }
+tokio-cron-scheduler = "0.13"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# XML parsing
+quick-xml = { version = "0.37", features = ["serialize"] }
+serde-xml-rs = "0.6"
+
+# Database
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+
+# Email
+lettre = { version = "0.11", default-features = false, features = ["tokio1", "tokio1-rustls-tls", "smtp-transport", "builder"] }
+
+# Configuration
+dotenvy = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
