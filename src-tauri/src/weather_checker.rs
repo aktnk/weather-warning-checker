@@ -31,6 +31,9 @@ impl WeatherChecker {
 
         // TODO: Configure monitored regions
         // For now, these are hardcoded to match the Python version
+        // Temporarily testing with Fukushima which has active warnings
+        self.check_warnings("福島地方気象台", &["会津若松市", "郡山市"])
+            .await?;
         self.check_warnings("静岡地方気象台", &["裾野市", "御殿場市"])
             .await?;
         self.check_warnings("東京管区気象台", &["千代田区"])
@@ -44,7 +47,7 @@ impl WeatherChecker {
         tracing::debug!("Checking warnings for {} - {:?}", lmo, cities);
 
         // Get latest VPWW54 data for this LMO
-        let warnings_opt = self.jma_feed.get_latest_vpww54_for_lmo(lmo).await?;
+        let warnings_opt = self.jma_feed.get_latest_vpww54_for_lmo(lmo, &self.db).await?;
 
         let Some(warnings) = warnings_opt else {
             tracing::debug!("No new warnings for {}", lmo);

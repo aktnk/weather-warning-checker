@@ -39,10 +39,16 @@ impl Database {
     pub async fn new() -> Result<Self> {
         let config = Config::from_env()?;
 
-        // Create data directory if it doesn't exist
-        std::fs::create_dir_all(std::path::Path::new(&config.db_path).parent().unwrap())?;
+        tracing::debug!("Database path: {}", config.db_path);
 
-        let pool = SqlitePool::connect(&format!("sqlite:{}", config.db_path)).await?;
+        // Create data directory if it doesn't exist
+        let db_parent = std::path::Path::new(&config.db_path).parent().unwrap();
+        tracing::debug!("Creating parent directory: {:?}", db_parent);
+        std::fs::create_dir_all(db_parent)?;
+
+        let db_url = format!("sqlite://{}?mode=rwc", config.db_path);
+        tracing::debug!("Connecting to database: {}", db_url);
+        let pool = SqlitePool::connect(&db_url).await?;
         Ok(Self { pool })
     }
 

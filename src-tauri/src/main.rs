@@ -14,6 +14,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load environment variables FIRST
+    dotenvy::dotenv().ok();
+
     // Initialize logging
     tracing_subscriber::registry()
         .with(
@@ -24,9 +27,6 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!("Starting Weather Checker...");
-
-    // Load environment variables
-    dotenvy::dotenv().ok();
 
     // Initialize database
     let db = database::Database::new().await?;
