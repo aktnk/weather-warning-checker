@@ -388,5 +388,4 @@ Same as the original Python project.
 
 For issues or questions, check:
 - [SETUP_COMPLETE.md](SETUP_COMPLETE.md) - Detailed implementation status
-- [CLAUDE.md](../CLAUDE.md) - Project overview and architecture
 - [Python version documentation](../README.md) - Original implementation reference
