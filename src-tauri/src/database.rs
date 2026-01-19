@@ -204,4 +204,152 @@ impl Database {
 
         Ok(())
     }
+
+    // ========================================================================
+    // New methods to match Python implementation
+    // ========================================================================
+
+    /// Add VPWW54xml record if not exists
+    /// Corresponds to Python's addVPWW54xml()
+    pub async fn add_vpww54_xml(&self, lmo: &str, xml_file: &str) -> Result<()> {
+        // Check if already exists
+        let exists = sqlx::query(
+            "SELECT id FROM vpww54xml WHERE xml_file = ? AND lmo = ? AND is_delete = 0"
+        )
+        .bind(xml_file)
+        .bind(lmo)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if exists.is_none() {
+            tracing::debug!("Creating VPWW54xml record: {}", xml_file);
+            self.create_vpww54(xml_file, lmo).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Update city report xml_file only (status unchanged)
+    /// Corresponds to Python's updateCityReportByXmlfile()
+    pub async fn update_city_report_xmlfile(
+        &self,
+        lmo: &str,
+        city: &str,
+        warning_kind: &str,
+        xml_file: &str,
+    ) -> Result<()> {
+        tracing::debug!(
+            "Updating xmlfile for {} - {} to {}",
+            city,
+            warning_kind,
+            xml_file
+        );
+
+        sqlx::query(
+            "UPDATE city_report SET xml_file = ? WHERE lmo = ? AND city = ? AND warning_kind = ? AND is_delete = 0"
+        )
+        .bind(xml_file)
+        .bind(lmo)
+        .bind(city)
+        .bind(warning_kind)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Delete city reports by status (soft delete all reports for a city)
+    /// Corresponds to Python's deleteCityReportByStatus()
+    pub async fn delete_city_reports_by_city(&self, lmo: &str, city: &str) -> Result<()> {
+        tracing::info!("Deleting all reports for {} - {}", lmo, city);
+
+        sqlx::query(
+            "UPDATE city_report SET is_delete = 1 WHERE lmo = ? AND city = ? AND is_delete = 0"
+        )
+        .bind(lmo)
+        .bind(city)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Delete city reports by LMO (only status='解除')
+    /// Corresponds to Python's deleteCityReportByLMO()
+    pub async fn delete_city_reports_by_lmo(&self, lmo: &str) -> Result<()> {
+        tracing::info!("Deleting cancelled reports for LMO: {}", lmo);
+
+        let rows = sqlx::query(
+            "UPDATE city_report SET is_delete = 1 WHERE lmo = ? AND status = '解除' AND is_delete = 0"
+        )
+        .bind(lmo)
+        .execute(&self.pool)
+        .await?;
+
+        tracing::debug!("Deleted {} city report records", rows.rows_affected());
+        Ok(())
+    }
+
+    /// Delete VPWW54xml records by LMO and move XML files
+    /// Corresponds to Python's deleteVPWW54xmlByLMO()
+    pub async fn delete_vpww54_by_lmo(&self, lmo: &str) -> Result<()> {
+        tracing::info!("Deleting VPWW54xml records for LMO: {}", lmo);
+
+        // Get all XML files for this LMO
+        let records = sqlx::query_as::<_, VPWW54Xml>(
+            "SELECT * FROM vpww54xml WHERE lmo = ? AND is_delete = 0"
+        )
+        .bind(lmo)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let config = Config::from_env()?;
+        let record_count = records.len();
+
+        for record in records {
+            tracing::debug!("Marking XML as deleted: {}", record.xml_file);
+
+            // Soft delete in DB
+            sqlx::query("UPDATE vpww54xml SET is_delete = 1 WHERE id = ?")
+                .bind(record.id)
+                .execute(&self.pool)
+                .await?;
+
+            // Move XML file to deleted directory
+            let src_path = std::path::Path::new(&config.data_dir).join(&record.xml_file);
+            let dst_path = std::path::Path::new(&config.deleted_dir).join(&record.xml_file);
+
+            if src_path.exists() {
+                // Create deleted directory if it doesn't exist
+                std::fs::create_dir_all(&config.deleted_dir)?;
+
+                if let Err(e) = std::fs::rename(&src_path, &dst_path) {
+                    tracing::warn!("Failed to move XML file {}: {}", record.xml_file, e);
+                }
+            }
+        }
+
+        tracing::debug!("Deleted {} VPWW54xml records", record_count);
+        Ok(())
+    }
+
+    /// Get XML file from the latest city report
+    /// Used to check if XML file has changed
+    pub async fn get_city_report_xmlfile(
+        &self,
+        lmo: &str,
+        city: &str,
+        warning_kind: &str,
+    ) -> Result<Option<String>> {
+        let row = sqlx::query(
+            "SELECT xml_file FROM city_report WHERE lmo = ? AND city = ? AND warning_kind = ? AND is_delete = 0"
+        )
+        .bind(lmo)
+        .bind(city)
+        .bind(warning_kind)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.get("xml_file")))
+    }
 }

@@ -480,13 +480,29 @@ impl JMAFeed {
         let mut result = Vec::new();
         if let Some(data) = vpww54_data {
             for warning in data.warnings {
-                for kind in warning.kinds {
-                    if let Some(kind_name) = kind.kind_name {
-                        result.push(WarningData {
-                            city: warning.area_name.clone(),
-                            warning_kind: kind_name,
-                            status: kind.status,
-                        });
+                if warning.kinds.is_empty() {
+                    // No kinds means "発表警報・注意報はなし"
+                    result.push(WarningData {
+                        city: warning.area_name.clone(),
+                        warning_kind: String::new(),
+                        status: "発表警報・注意報はなし".to_string(),
+                    });
+                } else {
+                    for kind in warning.kinds {
+                        if let Some(kind_name) = kind.kind_name {
+                            result.push(WarningData {
+                                city: warning.area_name.clone(),
+                                warning_kind: kind_name,
+                                status: kind.status,
+                            });
+                        } else if kind.status == "発表警報・注意報はなし" {
+                            // Handle explicit "no warnings" status
+                            result.push(WarningData {
+                                city: warning.area_name.clone(),
+                                warning_kind: String::new(),
+                                status: kind.status,
+                            });
+                        }
                     }
                 }
             }
@@ -502,12 +518,12 @@ impl JMAFeed {
     /// 2. Parse extra.xml and filter entries by LMO
     /// 3. Get the latest entry for the specified LMO
     /// 4. Download and parse the VPWW54 XML
-    /// 5. Record the XML file in database
+    /// Returns: Option<(warnings, xml_filename)>
     pub async fn get_latest_vpww54_for_lmo(
         &self,
         lmo: &str,
         db: &Database,
-    ) -> Result<Option<Vec<WarningData>>> {
+    ) -> Result<Option<(Vec<WarningData>, String)>> {
         tracing::info!("Fetching latest VPWW54 for LMO: {}", lmo);
 
         // Step 1: Fetch extra.xml with conditional request
@@ -551,10 +567,9 @@ impl JMAFeed {
         // Step 4: Download and parse VPWW54 XML
         let warnings = self.fetch_vpww54(&latest_entry.url, &latest_entry.filename).await?;
 
-        // Step 5: Record in database (if not already recorded)
-        db.create_vpww54(lmo, &latest_entry.filename).await?;
-
         tracing::info!("Successfully retrieved {} warnings for {}", warnings.len(), lmo);
-        Ok(Some(warnings))
+
+        // Return warnings and XML filename (filename will be recorded in DB by caller)
+        Ok(Some((warnings, latest_entry.filename.clone())))
     }
 }
