@@ -1,14 +1,14 @@
-use crate::config::Config;
+use crate::config::{Config, MonitorConfig};
 use crate::database::{Database, CityReport};
 use crate::jma_feed::JMAFeed;
 use crate::notification::EmailNotifier;
 use crate::error::Result;
 
 pub struct WeatherChecker {
-    config: Config,
     db: Database,
     jma_feed: JMAFeed,
     notifier: EmailNotifier,
+    monitor_config: MonitorConfig,
 }
 
 impl WeatherChecker {
@@ -18,20 +18,26 @@ impl WeatherChecker {
         let jma_feed = JMAFeed::new(config.clone());
         let notifier = EmailNotifier::new(config.clone());
 
+        // Load monitor configuration from YAML file
+        let config_path = MonitorConfig::default_path();
+        let monitor_config = MonitorConfig::load(&config_path)?;
+
         Ok(Self {
-            config,
             db,
             jma_feed,
             notifier,
+            monitor_config,
         })
     }
 
     pub async fn run_check(&self) -> Result<()> {
         tracing::info!("Starting weather check...");
 
-        // Monitored regions (matching Python version)
-        self.check_warnings("静岡地方気象台", &["裾野市", "御殿場市"])
-            .await?;
+        // Iterate through all monitored regions from config file
+        for region in &self.monitor_config.monitored_regions {
+            let cities: Vec<&str> = region.cities.iter().map(|s| s.as_str()).collect();
+            self.check_warnings(&region.lmo, &cities).await?;
+        }
 
         tracing::info!("Weather check completed");
         Ok(())

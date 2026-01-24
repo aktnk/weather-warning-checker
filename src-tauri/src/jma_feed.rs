@@ -307,7 +307,6 @@ impl JMAFeed {
         let mut in_head = false;
         let mut in_warning_type_city = false;
         let mut in_item = false;
-        let mut in_kind = false;
 
         let mut buf = Vec::new();
 
@@ -328,7 +327,10 @@ impl JMAFeed {
                             });
                         }
                         "Head" => in_head = true,
-                        "Warning" | "Information" => {
+                        // Only process <Warning> tag, NOT <Information> tag
+                        // Python version: for warning in self.dict['Report']['Body']['Warning']
+                        // <Information> tag does NOT contain <Status>, only <Warning> does
+                        "Warning" => {
                             // Check if it's the city-level warning type
                             for attr in e.attributes() {
                                 if let Ok(attr) = attr {
@@ -349,9 +351,6 @@ impl JMAFeed {
                                 kinds: Vec::new(),
                             });
                         }
-                        "Kind" if in_item => {
-                            in_kind = true;
-                        }
                         _ => {}
                     }
                     current_text.clear();
@@ -362,14 +361,13 @@ impl JMAFeed {
                     match tag_name.as_str() {
                         "Control" => in_control = false,
                         "Head" => in_head = false,
-                        "Warning" | "Information" => in_warning_type_city = false,
+                        "Warning" => in_warning_type_city = false,
                         "Item" if in_item => {
                             in_item = false;
                             if let Some(cw) = current_city_warning.take() {
                                 warnings.push(cw);
                             }
                         }
-                        "Kind" => in_kind = false,
                         _ => {}
                     }
 
@@ -424,22 +422,29 @@ impl JMAFeed {
                     } else if in_item {
                         if let Some(ref mut cw) = current_city_warning {
                             let parent = current_path.get(current_path.len() - 1).map(|s| s.as_str());
-                            match parent {
-                                Some("Name") if current_path.contains(&"Area".to_string()) => {
+                            // Check the path more precisely to distinguish Area/Name from Kind/Name
+                            // Path example for Area/Name: [..., "Item", "Area", "Name"]
+                            // Path example for Kind/Name: [..., "Item", "Kind", "Name"]
+                            let grandparent = if current_path.len() >= 2 {
+                                current_path.get(current_path.len() - 2).map(|s| s.as_str())
+                            } else {
+                                None
+                            };
+
+                            match (grandparent, parent) {
+                                (Some("Area"), Some("Name")) => {
+                                    // Area/Name - set the city name
                                     cw.area_name = current_text.clone();
                                 }
-                                Some("ChangeStatus") => {
-                                    cw.change_status = Some(current_text.clone());
-                                }
-                                Some("Name") if in_kind => {
-                                    // Add kind with name
+                                (Some("Kind"), Some("Name")) => {
+                                    // Kind/Name - add a new kind with name
                                     cw.kinds.push(WarningKind {
                                         kind_name: Some(current_text.clone()),
                                         status: String::new(),
                                     });
                                 }
-                                Some("Status") if in_kind => {
-                                    // Update status of last kind
+                                (Some("Kind"), Some("Status")) => {
+                                    // Kind/Status - update status of last kind
                                     if let Some(last_kind) = cw.kinds.last_mut() {
                                         last_kind.status = current_text.clone();
                                     } else {
@@ -449,6 +454,9 @@ impl JMAFeed {
                                             status: current_text.clone(),
                                         });
                                     }
+                                }
+                                (_, Some("ChangeStatus")) => {
+                                    cw.change_status = Some(current_text.clone());
                                 }
                                 _ => {}
                             }

@@ -1,5 +1,61 @@
 use std::env;
+use std::path::Path;
+use serde::Deserialize;
 use crate::error::{Result, WeatherCheckerError};
+
+/// Monitored region configuration
+#[derive(Debug, Clone, Deserialize)]
+pub struct MonitoredRegion {
+    /// Local Meteorological Observatory name (e.g., "静岡地方気象台")
+    pub lmo: String,
+    /// List of cities to monitor (e.g., ["裾野市", "御殿場市"])
+    pub cities: Vec<String>,
+}
+
+/// Monitor configuration loaded from YAML file
+#[derive(Debug, Clone, Deserialize)]
+pub struct MonitorConfig {
+    /// List of monitored regions
+    pub monitored_regions: Vec<MonitoredRegion>,
+}
+
+impl MonitorConfig {
+    /// Load monitor configuration from YAML file
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| WeatherCheckerError::Config(
+                format!("Failed to read config file '{}': {}", path.display(), e)
+            ))?;
+
+        let config: MonitorConfig = serde_yaml::from_str(&content)
+            .map_err(|e| WeatherCheckerError::Config(
+                format!("Failed to parse config file '{}': {}", path.display(), e)
+            ))?;
+
+        if config.monitored_regions.is_empty() {
+            return Err(WeatherCheckerError::Config(
+                "No monitored regions defined in config file".into()
+            ));
+        }
+
+        tracing::info!(
+            "Loaded {} monitored regions from config",
+            config.monitored_regions.len()
+        );
+
+        for region in &config.monitored_regions {
+            tracing::debug!("  {} -> {:?}", region.lmo, region.cities);
+        }
+
+        Ok(config)
+    }
+
+    /// Get default config file path
+    pub fn default_path() -> String {
+        env::var("CONFIG_PATH").unwrap_or_else(|_| "config.yaml".to_string())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Config {

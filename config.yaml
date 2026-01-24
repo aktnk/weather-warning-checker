@@ -1,0 +1,20 @@
+# Weather Checker Configuration
+# Monitored regions for weather warnings and advisories
+
+monitored_regions:
+  # Shizuoka Regional Meteorological Observatory
+  - lmo: "静岡地方気象台"
+    cities:
+      - "裾野市"
+      - "御殿場市"
+
+  # Add more regions as needed:
+  - lmo: "金沢地方気象台"
+    cities:
+      - "能登町"
+
+  - lmo: "鳥取地方気象台"
+    cities:
+      - "米子市"
+      - "鳥取市南部"
+      - "鳥取市北部"
