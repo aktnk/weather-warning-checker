@@ -96,8 +96,8 @@ impl WeatherChecker {
         new_status: &str,
         xml_filename: &str,
     ) -> Result<()> {
-        // Check if we already have a record for this city+warning combination
-        let existing = self.db.get_city_report(city, warning_kind).await?;
+        // Check if we already have a record for this lmo+city+warning combination
+        let existing = self.db.get_city_report(lmo, city, warning_kind).await?;
 
         match existing {
             Some(record) => {

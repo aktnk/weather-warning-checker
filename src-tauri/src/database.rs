@@ -139,14 +139,18 @@ impl Database {
     }
 
     // CityReport table operations
+    /// Get city report by lmo, city, and warning_kind
+    /// Corresponds to Python's checkCityAndKindDataSameInCityReport()
     pub async fn get_city_report(
         &self,
+        lmo: &str,
         city: &str,
         warning_kind: &str,
     ) -> Result<Option<CityReport>> {
         let record = sqlx::query_as::<_, CityReport>(
-            "SELECT * FROM city_report WHERE city = ? AND warning_kind = ? AND is_delete = 0"
+            "SELECT * FROM city_report WHERE lmo = ? AND city = ? AND warning_kind = ? AND is_delete = 0"
         )
+        .bind(lmo)
         .bind(city)
         .bind(warning_kind)
         .fetch_optional(&self.pool)
