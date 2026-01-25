@@ -4,46 +4,29 @@ Rust + Tauri implementation of the JMA Weather Warning Checker.
 
 ## Project Status
 
-✅ **PRODUCTION READY - Fully Compatible with Python Version**
+**PRODUCTION READY**
 
 All features have been implemented and tested. This application is **feature-complete** and production-ready.
 
-### Implementation Status
+### Features
 
-- ✅ **Database layer** (SQLite with sqlx, async) - 6 new methods added for Python compatibility
-- ✅ **Configuration management** (environment variables, .env support)
-- ✅ **Email notifications** (Gmail SMTP with rustls) - **Identical format to Python version**
-- ✅ **Scheduler** (10-minute weather checks, daily cleanup at 01:00)
-- ✅ **Error handling** (custom error types with thiserror)
-- ✅ **Data cleanup** (old records removal, soft delete, XML file movement)
-- ✅ **JMA XML Parser** - Complete implementation:
+- **Database layer** (SQLite with sqlx, async)
+- **Configuration management** (environment variables, .env support)
+- **Email notifications** (Gmail SMTP with rustls)
+- **Scheduler** (10-minute weather checks, daily cleanup at 01:00)
+- **Error handling** (custom error types with thiserror)
+- **Data cleanup** (old records removal, soft delete, XML file movement)
+- **JMA XML Parser** - Complete implementation:
   - extra.xml parsing (Atom feed, If-Modified-Since)
   - VPWW54 format parsing (full-width character support)
-  - City-level warning extraction (tested with 310 warnings)
+  - City-level warning extraction
   - "No warnings" status handling (発表警報・注意報はなし)
-- ✅ **Weather Checker** - Complete implementation:
+- **Weather Checker** - Complete implementation:
   - Status change detection
   - XML file change detection (updates DB without notification)
   - Database integration
   - Notification triggering
   - LMO cleanup when no entry in extra.xml
-
-### Python Compatibility
-
-**This Rust version is 100% compatible with the Python version:**
-
-| Feature | Python Version | Rust Version | Status |
-|---------|---------------|--------------|--------|
-| Email format | Custom format | Identical | ✅ |
-| Warning detection | Status changes | Identical | ✅ |
-| XML file handling | Download + cache | Identical | ✅ |
-| Database schema | SQLite 3 tables | Identical | ✅ |
-| Notification logic | On status change | Identical | ✅ |
-| LMO cleanup | When no entry | Identical | ✅ |
-| "No warnings" handling | Delete reports | Identical | ✅ |
-| XML file updates | Track in DB | Identical | ✅ |
-| VPWW54xml table | Record all files | Identical | ✅ |
-| Monitored regions | 静岡地方気象台 | Identical | ✅ |
 
 ## Architecture
 
@@ -58,17 +41,17 @@ Tauri App (Background Service)
 │   ├── Extra (Last-Modified tracking)
 │   ├── VPWW54xml (XML file cache)
 │   └── CityReport (Warning state)
-├── JMA Feed Client (✅ Complete)
+├── JMA Feed Client
 │   ├── Fetch extra.xml with If-Modified-Since
 │   ├── Parse VPWW54 entries
 │   ├── Download and cache warning data
 │   └── Handle "no warnings" status
-├── Weather Checker (✅ Complete)
+├── Weather Checker
 │   ├── Compare and detect changes
 │   ├── Track XML file changes
 │   └── Clean up old data
 └── Notification (Gmail SMTP)
-    └── Send email on status change (Python-compatible format)
+    └── Send email on status change
 ```
 
 ## Prerequisites
@@ -81,13 +64,7 @@ Tauri App (Background Service)
 
 ## Quick Start
 
-### 1. Clone and Navigate
-
-```bash
-cd tauri-weather-checker
-```
-
-### 2. Install System Dependencies (Ubuntu/Debian)
+### 1. Install System Dependencies (Ubuntu/Debian)
 
 ```bash
 sudo apt update
@@ -101,7 +78,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
   librsvg2-dev
 ```
 
-### 3. Create Environment File
+### 2. Create Environment File
 
 ```bash
 cp .env.example .env
@@ -116,7 +93,7 @@ EMAIL_TO=recipient@example.com
 EMAIL_BCC=bcc@example.com  # Optional
 ```
 
-### 4. Build and Run
+### 3. Build and Run
 
 **Development mode (with debug logs):**
 ```bash
@@ -229,7 +206,7 @@ After modifying `config.yaml`, restart the application (no rebuild required).
 ## Project Structure
 
 ```
-tauri-weather-checker/
+weather-warning-checker/
 ├── src-tauri/
 │   ├── src/
 │   │   ├── main.rs           # Entry point, Tauri setup
@@ -243,11 +220,10 @@ tauri-weather-checker/
 │   │   └── error.rs          # Error types
 │   ├── Cargo.toml            # Rust dependencies
 │   ├── tauri.conf.json       # Tauri configuration
-│   ├── data/                 # Auto-created (runtime data)
-│   │   ├── xml/              # XML cache
-│   │   ├── deleted/          # Deleted XML files
-│   │   └── weather.sqlite3   # Database
-│   └── build.rs              # Build script
+│   └── data/                 # Auto-created (runtime data)
+│       ├── xml/              # XML cache
+│       ├── deleted/          # Deleted XML files
+│       └── weather.sqlite3   # Database
 ├── config.yaml               # Monitored regions configuration
 ├── .env                      # Environment configuration
 ├── .env.example              # Example environment file
@@ -333,57 +309,6 @@ rustc --version
 cargo update
 ```
 
-## Performance Comparison
-
-| Metric | Python + Docker | Rust + Tauri | Improvement |
-|--------|----------------|--------------|-------------|
-| Memory usage | ~100-200 MB | ~10-50 MB | 2-20x less |
-| Binary size | ~500 MB | ~5-15 MB | 33-100x smaller |
-| Startup time | 3-5 seconds | <1 second | 3-5x faster |
-| Dependencies | Docker required | None | Standalone |
-| Distribution | Docker image | Single executable | Simpler |
-
-## Migration from Python Version
-
-### Parallel Testing (Recommended)
-
-Run both versions simultaneously for 1-2 weeks:
-
-```bash
-# Python version (on another host)
-docker-compose up -d
-
-# Rust version (on this host)
-cd tauri-weather-checker/src-tauri
-cargo run --release
-```
-
-Compare logs and notifications to verify identical behavior.
-
-### Database Compatibility
-
-The Rust version uses the **same database schema** as Python. You can:
-- Share the same database file between versions
-- Migrate by copying the SQLite file
-- Run both pointing to different databases
-
-### Cutover Process
-
-1. Verify Rust version is working correctly
-2. Stop Python version: `docker-compose down`
-3. Keep Rust version running
-4. Optional: Set up systemd service for auto-start
-
-## Optional Enhancements
-
-Future improvements (not blocking production):
-
-- **System tray menu** (icons needed)
-- **GUI configuration interface**
-- **Log file rotation**
-- **Systemd service integration**
-- **Auto-update mechanism**
-
 ## Contributing
 
 When making changes:
@@ -394,12 +319,16 @@ When making changes:
 4. Test: `cargo run`
 5. Build release: `cargo build --release`
 
+## Optional Enhancements
+
+Future improvements:
+
+- **System tray menu** (icons needed)
+- **GUI configuration interface**
+- **Log file rotation**
+- **Systemd service integration**
+- **Auto-update mechanism**
+
 ## License
 
-Same as the original Python project.
-
-## Support
-
-For issues or questions, check:
-- [SETUP_COMPLETE.md](SETUP_COMPLETE.md) - Detailed implementation status
-- [Python version documentation](../README.md) - Original implementation reference
+MIT License
