@@ -1,3 +1,4 @@
+use std::env;
 use lettre::{Message, SmtpTransport, Transport};
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
@@ -58,7 +59,16 @@ impl EmailNotifier {
         lmo: &str,
     ) -> Result<()> {
         // Subject format: {city}:{warning}:{status}
-        let subject = format!("{}:{}:{}", city, warning_kind, status);
+        // Add "test:" prefix when RUST_LOG contains "debug"
+        let base_subject = format!("{}:{}:{}", city, warning_kind, status);
+        let subject = if env::var("RUST_LOG")
+            .map(|v| v.contains("debug"))
+            .unwrap_or(false)
+        {
+            format!("test:{}", base_subject)
+        } else {
+            base_subject
+        };
 
         // Get current timestamp
         let now: DateTime<Local> = Local::now();
