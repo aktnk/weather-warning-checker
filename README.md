@@ -189,13 +189,14 @@ All configuration is done via environment variables (`.env` file):
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
+| `CONFIG_PATH` | Path to config.yaml | `config.yaml` | No |
 | `DATADIR` | XML cache directory | `data/xml` | No |
 | `DELETED_DIR` | Deleted XML directory | `data/deleted` | No |
 | `DB_PATH` | SQLite database path | `data/weather.sqlite3` | No |
 | `GMAIL_APP_PASS` | Gmail app password | - | **Yes** |
 | `GMAIL_FROM` | Sender email | - | **Yes** |
 | `EMAIL_TO` | Recipient email | - | **Yes** |
-| `EMAIL_BCC` | BCC email | - | No |
+| `EMAIL_BCC` | BCC email (comment out to disable) | - | No |
 
 ### Gmail Setup
 
@@ -205,20 +206,25 @@ All configuration is done via environment variables (`.env` file):
 
 ## Monitoring Regions
 
-Current monitored regions (matching Python version):
-- 静岡地方気象台: 裾野市, 御殿場市
+Monitored regions are configured in `config.yaml`:
 
-To modify, edit `src-tauri/src/weather_checker.rs`:
-
-```rust
-pub async fn run_check(&self) -> Result<()> {
-    self.check_warnings("静岡地方気象台", &["裾野市", "御殿場市"]).await?;
-    // Add more regions as needed
-    Ok(())
-}
+```yaml
+monitored_regions:
+  - lmo: "静岡地方気象台"
+    cities:
+      - "裾野市"
+      - "御殿場市"
+  - lmo: "金沢地方気象台"
+    cities:
+      - "能登町"
 ```
 
-Then rebuild: `cargo build --release`
+Set the config file path in `.env`:
+```
+CONFIG_PATH=../config.yaml
+```
+
+After modifying `config.yaml`, restart the application (no rebuild required).
 
 ## Project Structure
 
@@ -227,22 +233,23 @@ tauri-weather-checker/
 ├── src-tauri/
 │   ├── src/
 │   │   ├── main.rs           # Entry point, Tauri setup
-│   │   ├── config.rs         # Environment configuration (✅)
-│   │   ├── database.rs       # SQLite operations (✅ +6 methods)
-│   │   ├── jma_feed.rs       # JMA XML fetching/parsing (✅)
-│   │   ├── weather_checker.rs # Core warning logic (✅)
-│   │   ├── notification.rs   # Email notifications (✅)
-│   │   ├── cleanup.rs        # Data cleanup tasks (✅)
-│   │   ├── scheduler.rs      # Cron-like scheduling (✅)
-│   │   └── error.rs          # Error types (✅)
+│   │   ├── config.rs         # Environment and YAML configuration
+│   │   ├── database.rs       # SQLite operations
+│   │   ├── jma_feed.rs       # JMA XML fetching/parsing
+│   │   ├── weather_checker.rs # Core warning logic
+│   │   ├── notification.rs   # Email notifications (test mode support)
+│   │   ├── cleanup.rs        # Data cleanup tasks
+│   │   ├── scheduler.rs      # Cron-like scheduling
+│   │   └── error.rs          # Error types
 │   ├── Cargo.toml            # Rust dependencies
 │   ├── tauri.conf.json       # Tauri configuration
+│   ├── data/                 # Auto-created (runtime data)
+│   │   ├── xml/              # XML cache
+│   │   ├── deleted/          # Deleted XML files
+│   │   └── weather.sqlite3   # Database
 │   └── build.rs              # Build script
-├── data/                     # Auto-created
-│   ├── xml/                  # XML cache
-│   ├── deleted/              # Deleted XML files
-│   └── weather.sqlite3       # Database
-├── .env                      # Configuration (create from .env.example)
+├── config.yaml               # Monitored regions configuration
+├── .env                      # Environment configuration
 ├── .env.example              # Example environment file
 └── README.md                 # This file
 ```
@@ -273,12 +280,19 @@ Log levels: `error`, `warn`, `info`, `debug`, `trace`
 # Minimal logs (info and above)
 RUST_LOG=tauri_weather_checker=info cargo run
 
-# Debug logs (recommended for development)
+# Debug logs (recommended for development/testing)
+# Note: Email subjects are prefixed with "test:" in debug mode
 RUST_LOG=tauri_weather_checker=debug cargo run
 
 # All logs (very verbose)
 RUST_LOG=tauri_weather_checker=trace cargo run
 ```
+
+### Test Mode
+
+When `RUST_LOG` contains "debug", email subjects are automatically prefixed with "test:":
+- Debug mode: `test:裾野市:大雨警報:発表`
+- Production mode: `裾野市:大雨警報:発表`
 
 ## Troubleshooting
 
