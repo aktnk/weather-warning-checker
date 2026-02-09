@@ -10,40 +10,6 @@ pub struct EmailNotifier {
     config: Config,
 }
 
-/// City to JMA URL mapping
-/// Corresponds to Python's JMAWeb.py
-struct CityUrlMapping {
-    city: &'static str,
-    url: &'static str,
-}
-
-const CITY_URL_MAPPINGS: &[CityUrlMapping] = &[
-    CityUrlMapping {
-        city: "裾野市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2222000",
-    },
-    CityUrlMapping {
-        city: "御殿場市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2221500",
-    },
-    CityUrlMapping {
-        city: "三島市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2220600",
-    },
-    CityUrlMapping {
-        city: "熱海市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2220500",
-    },
-    CityUrlMapping {
-        city: "都城市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=4520200",
-    },
-    CityUrlMapping {
-        city: "つがる市",
-        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=0220900",
-    },
-];
-
 const DEFAULT_URL: &str = "https://www.jma.go.jp/bosai/warning/#lang=ja";
 
 impl EmailNotifier {
@@ -57,6 +23,7 @@ impl EmailNotifier {
         warning_kind: &str,
         status: &str,
         lmo: &str,
+        jma_url: Option<&str>,
     ) -> Result<()> {
         // Subject format: {city}:{warning}:{status}
         // Add "test:" prefix when RUST_LOG contains "debug"
@@ -74,8 +41,9 @@ impl EmailNotifier {
         let now: DateTime<Local> = Local::now();
         let timestamp = now.format("%Y/%m/%d %H:%M:%S").to_string();
 
-        // Get JMA URL for the city
-        let (city_name, jma_url) = self.get_jma_link(city);
+        // Get JMA URL for the city (use config URL or fall back to default)
+        let resolved_url = jma_url.unwrap_or(DEFAULT_URL);
+        let city_name = if jma_url.is_some() { city } else { "全国" };
 
         // Body format matching Python implementation:
         // LWO:{obs}
@@ -88,7 +56,7 @@ impl EmailNotifier {
         // END
         let body = format!(
             "LWO:{}\nDATE:{}\nCITY:{}\nWARN:{}\nSTAT:{}\nLINK:気象庁｜{}の警報・注意報\nURL:{}\nEND",
-            lmo, timestamp, city, warning_kind, status, city_name, jma_url
+            lmo, timestamp, city, warning_kind, status, city_name, resolved_url
         );
 
         let mut email_builder = Message::builder()
@@ -123,16 +91,4 @@ impl EmailNotifier {
         Ok(())
     }
 
-    /// Get JMA URL link for a city
-    /// Returns (city_name, url) tuple
-    /// Corresponds to Python's JMAWebURLs.getLink()
-    fn get_jma_link(&self, city: &str) -> (&str, &str) {
-        for mapping in CITY_URL_MAPPINGS {
-            if mapping.city == city {
-                return (mapping.city, mapping.url);
-            }
-        }
-        // Default to national page if city not found
-        ("全国", DEFAULT_URL)
-    }
 }

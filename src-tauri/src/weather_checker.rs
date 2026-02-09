@@ -35,16 +35,17 @@ impl WeatherChecker {
 
         // Iterate through all monitored regions from config file
         for region in &self.monitor_config.monitored_regions {
-            let cities: Vec<&str> = region.cities.iter().map(|s| s.as_str()).collect();
-            self.check_warnings(&region.lmo, &cities).await?;
+            self.check_warnings(region).await?;
         }
 
         tracing::info!("Weather check completed");
         Ok(())
     }
 
-    async fn check_warnings(&self, lmo: &str, cities: &[&str]) -> Result<()> {
-        tracing::debug!("Checking warnings for {} - {:?}", lmo, cities);
+    async fn check_warnings(&self, region: &crate::config::MonitoredRegion) -> Result<()> {
+        let lmo = &region.lmo;
+        let city_names = region.city_names();
+        tracing::debug!("Checking warnings for {} - {:?}", lmo, city_names);
 
         // Get latest VPWW54 data for this LMO
         let warnings_opt = self
@@ -70,7 +71,7 @@ impl WeatherChecker {
         // Process each warning
         for warning in warnings {
             // Filter for specified cities
-            if !cities.contains(&warning.city.as_str()) {
+            if !city_names.contains(&warning.city.as_str()) {
                 continue;
             }
 
@@ -93,12 +94,14 @@ impl WeatherChecker {
                 continue;
             }
 
+            let jma_url = region.get_city_url(&warning.city);
             self.process_warning(
                 lmo,
                 &warning.city,
                 &warning.warning_kind,
                 &warning.status,
                 &xml_filename,
+                jma_url,
             )
             .await?;
         }
@@ -113,6 +116,7 @@ impl WeatherChecker {
         warning_kind: &str,
         new_status: &str,
         xml_filename: &str,
+        jma_url: Option<&str>,
     ) -> Result<()> {
         // Check if we already have a record for this lmo+city+warning combination
         let existing = self.db.get_city_report(lmo, city, warning_kind).await?;
@@ -131,7 +135,7 @@ impl WeatherChecker {
                     );
 
                     self.notifier
-                        .send_warning_notification(city, warning_kind, new_status, lmo)
+                        .send_warning_notification(city, warning_kind, new_status, lmo, jma_url)
                         .await?;
 
                     // Update record with new status and xml_file
@@ -177,7 +181,7 @@ impl WeatherChecker {
                 );
 
                 self.notifier
-                    .send_warning_notification(city, warning_kind, new_status, lmo)
+                    .send_warning_notification(city, warning_kind, new_status, lmo, jma_url)
                     .await?;
 
                 let report = CityReport {

@@ -3,13 +3,37 @@ use serde::Deserialize;
 use std::env;
 use std::path::Path;
 
+/// City configuration with optional JMA URL
+#[derive(Debug, Clone, Deserialize)]
+pub struct CityConfig {
+    /// City name (e.g., "裾野市")
+    pub name: String,
+    /// JMA warning page URL for this city (optional, falls back to default)
+    pub url: Option<String>,
+}
+
 /// Monitored region configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct MonitoredRegion {
     /// Local Meteorological Observatory name (e.g., "静岡地方気象台")
     pub lmo: String,
-    /// List of cities to monitor (e.g., ["裾野市", "御殿場市"])
-    pub cities: Vec<String>,
+    /// List of cities to monitor
+    pub cities: Vec<CityConfig>,
+}
+
+impl MonitoredRegion {
+    /// Get city names as a list of string slices
+    pub fn city_names(&self) -> Vec<&str> {
+        self.cities.iter().map(|c| c.name.as_str()).collect()
+    }
+
+    /// Get the JMA URL for a specific city
+    pub fn get_city_url(&self, city: &str) -> Option<&str> {
+        self.cities
+            .iter()
+            .find(|c| c.name == city)
+            .and_then(|c| c.url.as_deref())
+    }
 }
 
 /// Monitor configuration loaded from YAML file

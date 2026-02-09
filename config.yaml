@@ -5,16 +5,23 @@ monitored_regions:
   # Shizuoka Regional Meteorological Observatory
   - lmo: "静岡地方気象台"
     cities:
-      - "裾野市"
-      - "御殿場市"
+      - name: "裾野市"
+        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2222000"
+      - name: "御殿場市"
+        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2221500"
 
   # Add more regions as needed:
   - lmo: "金沢地方気象台"
     cities:
-      - "能登町"
+      - name: "能登町"
+
+  - lmo: "仙台管区気象台"
+    cities:
+      - name: "南三陸町"
+        url: "https://www.jma.go.jp/bosai/warning/#area_type=class20s&area_code=0460600"
 
   # - lmo: "鳥取地方気象台"
   #   cities:
-  #     - "米子市"
-  #     - "鳥取市南部"
-  #     - "鳥取市北部"
+  #     - name: "米子市"
+  #     - name: "鳥取市南部"
+  #     - name: "鳥取市北部"
