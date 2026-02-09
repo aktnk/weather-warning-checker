@@ -1,10 +1,10 @@
-use reqwest::Client;
-use serde::Deserialize;
-use crate::error::Result;
 use crate::config::Config;
 use crate::database::Database;
-use std::path::PathBuf;
+use crate::error::Result;
 use chrono::{DateTime, Utc};
+use reqwest::Client;
+use serde::Deserialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct JMAFeed {
@@ -25,7 +25,6 @@ pub struct FeedEntry {
     pub updated: DateTime<Utc>,
     pub author_name: String,
     pub link: String,
-    pub content: String,
 }
 
 /// Represents a VPWW54 entry extracted from extra.xml
@@ -44,6 +43,7 @@ pub struct VPWWEntry {
 /// Complete VPWW54 XML data
 /// Corresponds to Python's VPWW54XMLData class
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct VPWW54Data {
     pub control: VPWW54Control,
     pub head: VPWW54Head,
@@ -112,7 +112,10 @@ impl JMAFeed {
 
         // Add If-Modified-Since header if we have a previous Last-Modified value
         if let Some(last_modified) = db.get_extra_last_modified().await? {
-            tracing::debug!("Requesting extra.xml with If-Modified-Since: {}", last_modified);
+            tracing::debug!(
+                "Requesting extra.xml with If-Modified-Since: {}",
+                last_modified
+            );
             request = request.header("If-Modified-Since", last_modified);
         }
 
@@ -174,18 +177,16 @@ impl JMAFeed {
                             updated: Utc::now(),
                             author_name: String::new(),
                             link: String::new(),
-                            content: String::new(),
                         });
                     } else if tag_name == "author" {
                         in_author = true;
                     } else if tag_name == "link" {
                         // Extract href attribute from <link> tag (can be empty element)
                         if let Some(entry) = current_entry.as_mut() {
-                            for attr in e.attributes() {
-                                if let Ok(attr) = attr {
-                                    if attr.key.as_ref() == b"href" {
-                                        entry.link = String::from_utf8_lossy(&attr.value).to_string();
-                                    }
+                            for attr in e.attributes().flatten() {
+                                if attr.key.as_ref() == b"href" {
+                                    entry.link =
+                                        String::from_utf8_lossy(&attr.value).to_string();
                                 }
                             }
                         }
@@ -200,7 +201,10 @@ impl JMAFeed {
                         if let Some(entry) = current_entry.take() {
                             if entry.title.contains(VPWW54_TITLE) {
                                 // Extract filename from URL
-                                let filename = entry.link.split('/').last()
+                                let filename = entry
+                                    .link
+                                    .split('/')
+                                    .next_back()
                                     .unwrap_or("unknown.xml")
                                     .to_string();
 
@@ -245,10 +249,15 @@ impl JMAFeed {
                 }
                 Ok(Event::Eof) => break,
                 Err(e) => {
-                    tracing::error!("Error parsing extra.xml at position {}: {:?}", reader.buffer_position(), e);
-                    return Err(crate::error::WeatherCheckerError::XmlParse(
-                        format!("XML parse error: {}", e)
-                    ));
+                    tracing::error!(
+                        "Error parsing extra.xml at position {}: {:?}",
+                        reader.buffer_position(),
+                        e
+                    );
+                    return Err(crate::error::WeatherCheckerError::XmlParse(format!(
+                        "XML parse error: {}",
+                        e
+                    )));
                 }
                 _ => {}
             }
@@ -332,13 +341,12 @@ impl JMAFeed {
                         // <Information> tag does NOT contain <Status>, only <Warning> does
                         "Warning" => {
                             // Check if it's the city-level warning type
-                            for attr in e.attributes() {
-                                if let Ok(attr) = attr {
-                                    if attr.key.as_ref() == b"type" {
-                                        let type_val = String::from_utf8_lossy(&attr.value);
-                                        if type_val == "気象警報・注意報（市町村等）" {
-                                            in_warning_type_city = true;
-                                        }
+                            for attr in e.attributes().flatten() {
+                                if attr.key.as_ref() == b"type" {
+                                    let type_val = String::from_utf8_lossy(&attr.value);
+                                    if type_val == "気象警報・注意報（市町村等）"
+                                    {
+                                        in_warning_type_city = true;
                                     }
                                 }
                             }
@@ -379,7 +387,8 @@ impl JMAFeed {
                     // Parse based on current context
                     if in_control {
                         if let Some(ref mut ctrl) = control {
-                            let parent = current_path.get(current_path.len() - 1).map(|s| s.as_str());
+                            let parent =
+                                current_path.last().map(|s| s.as_str());
                             match parent {
                                 Some("Title") => ctrl.title = current_text.clone(),
                                 Some("DateTime") => {
@@ -388,7 +397,9 @@ impl JMAFeed {
                                     }
                                 }
                                 Some("Status") => ctrl.status = current_text.clone(),
-                                Some("PublishingOffice") => ctrl.publishing_office = current_text.clone(),
+                                Some("PublishingOffice") => {
+                                    ctrl.publishing_office = current_text.clone()
+                                }
                                 _ => {}
                             }
                         }
@@ -402,7 +413,8 @@ impl JMAFeed {
                             });
                         }
                         if let Some(ref mut h) = head {
-                            let parent = current_path.get(current_path.len() - 1).map(|s| s.as_str());
+                            let parent =
+                                current_path.last().map(|s| s.as_str());
                             match parent {
                                 Some("Title") => h.title = current_text.clone(),
                                 Some("ReportDateTime") => {
@@ -410,7 +422,9 @@ impl JMAFeed {
                                     let normalized = current_text.replace("+09:00", "+0900");
                                     if let Ok(dt) = DateTime::parse_from_rfc3339(&normalized) {
                                         h.report_datetime = dt.with_timezone(&Utc);
-                                    } else if let Ok(dt) = DateTime::parse_from_rfc3339(&current_text) {
+                                    } else if let Ok(dt) =
+                                        DateTime::parse_from_rfc3339(&current_text)
+                                    {
                                         h.report_datetime = dt.with_timezone(&Utc);
                                     }
                                 }
@@ -421,7 +435,8 @@ impl JMAFeed {
                         }
                     } else if in_item {
                         if let Some(ref mut cw) = current_city_warning {
-                            let parent = current_path.get(current_path.len() - 1).map(|s| s.as_str());
+                            let parent =
+                                current_path.last().map(|s| s.as_str());
                             // Check the path more precisely to distinguish Area/Name from Kind/Name
                             // Path example for Area/Name: [..., "Item", "Area", "Name"]
                             // Path example for Kind/Name: [..., "Item", "Kind", "Name"]
@@ -466,9 +481,10 @@ impl JMAFeed {
                 Ok(Event::Eof) => break,
                 Err(e) => {
                     tracing::error!("Error parsing VPWW54 XML: {:?}", e);
-                    return Err(crate::error::WeatherCheckerError::XmlParse(
-                        format!("VPWW54 parse error: {}", e)
-                    ));
+                    return Err(crate::error::WeatherCheckerError::XmlParse(format!(
+                        "VPWW54 parse error: {}",
+                        e
+                    )));
                 }
                 _ => {}
             }
@@ -526,6 +542,7 @@ impl JMAFeed {
     /// 2. Parse extra.xml and filter entries by LMO
     /// 3. Get the latest entry for the specified LMO
     /// 4. Download and parse the VPWW54 XML
+    ///
     /// Returns: Option<(warnings, xml_filename)>
     pub async fn get_latest_vpww54_for_lmo(
         &self,
@@ -573,9 +590,15 @@ impl JMAFeed {
         );
 
         // Step 4: Download and parse VPWW54 XML
-        let warnings = self.fetch_vpww54(&latest_entry.url, &latest_entry.filename).await?;
+        let warnings = self
+            .fetch_vpww54(&latest_entry.url, &latest_entry.filename)
+            .await?;
 
-        tracing::info!("Successfully retrieved {} warnings for {}", warnings.len(), lmo);
+        tracing::info!(
+            "Successfully retrieved {} warnings for {}",
+            warnings.len(),
+            lmo
+        );
 
         // Return warnings and XML filename (filename will be recorded in DB by caller)
         Ok(Some((warnings, latest_entry.filename.clone())))

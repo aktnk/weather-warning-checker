@@ -1,14 +1,14 @@
 // Prevents additional console window on Windows in release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod cleanup;
 mod config;
 mod database;
-mod jma_feed;
-mod weather_checker;
-mod notification;
-mod cleanup;
-mod scheduler;
 mod error;
+mod jma_feed;
+mod notification;
+mod scheduler;
+mod weather_checker;
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -42,9 +42,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Build Tauri app with system tray
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(|_app| {
             // System tray can be added later with proper icons
-            tracing::info!("Application initialized (system tray disabled until icons are configured)");
+            tracing::info!(
+                "Application initialized (system tray disabled until icons are configured)"
+            );
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -1,7 +1,7 @@
-use tokio_cron_scheduler::{JobScheduler, Job};
-use crate::weather_checker::WeatherChecker;
 use crate::cleanup::Cleanup;
 use crate::error::Result;
+use crate::weather_checker::WeatherChecker;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
 pub async fn start_scheduler() -> Result<()> {
     tracing::info!("Starting scheduler...");

@@ -1,7 +1,7 @@
+use crate::error::{Result, WeatherCheckerError};
+use serde::Deserialize;
 use std::env;
 use std::path::Path;
-use serde::Deserialize;
-use crate::error::{Result, WeatherCheckerError};
 
 /// Monitored region configuration
 #[derive(Debug, Clone, Deserialize)]
@@ -23,19 +23,25 @@ impl MonitorConfig {
     /// Load monitor configuration from YAML file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| WeatherCheckerError::Config(
-                format!("Failed to read config file '{}': {}", path.display(), e)
-            ))?;
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            WeatherCheckerError::Config(format!(
+                "Failed to read config file '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
 
-        let config: MonitorConfig = serde_yaml::from_str(&content)
-            .map_err(|e| WeatherCheckerError::Config(
-                format!("Failed to parse config file '{}': {}", path.display(), e)
-            ))?;
+        let config: MonitorConfig = serde_yaml::from_str(&content).map_err(|e| {
+            WeatherCheckerError::Config(format!(
+                "Failed to parse config file '{}': {}",
+                path.display(),
+                e
+            ))
+        })?;
 
         if config.monitored_regions.is_empty() {
             return Err(WeatherCheckerError::Config(
-                "No monitored regions defined in config file".into()
+                "No monitored regions defined in config file".into(),
             ));
         }
 

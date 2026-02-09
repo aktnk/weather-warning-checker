@@ -1,10 +1,10 @@
-use std::env;
-use lettre::{Message, SmtpTransport, Transport};
-use lettre::message::header::ContentType;
-use lettre::transport::smtp::authentication::Credentials;
-use chrono::{DateTime, Local};
 use crate::config::Config;
 use crate::error::Result;
+use chrono::{DateTime, Local};
+use lettre::message::header::ContentType;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
+use std::env;
 
 pub struct EmailNotifier {
     config: Config,
@@ -100,9 +100,7 @@ impl EmailNotifier {
             email_builder = email_builder.bcc(bcc.parse()?);
         }
 
-        let email = email_builder
-            .header(ContentType::TEXT_PLAIN)
-            .body(body)?;
+        let email = email_builder.header(ContentType::TEXT_PLAIN).body(body)?;
 
         let creds = Credentials::new(
             self.config.gmail_from.clone(),

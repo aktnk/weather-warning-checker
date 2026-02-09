@@ -1,8 +1,8 @@
 use crate::config::{Config, MonitorConfig};
-use crate::database::{Database, CityReport};
+use crate::database::{CityReport, Database};
+use crate::error::Result;
 use crate::jma_feed::JMAFeed;
 use crate::notification::EmailNotifier;
-use crate::error::Result;
 
 pub struct WeatherChecker {
     db: Database,
@@ -47,7 +47,10 @@ impl WeatherChecker {
         tracing::debug!("Checking warnings for {} - {:?}", lmo, cities);
 
         // Get latest VPWW54 data for this LMO
-        let warnings_opt = self.jma_feed.get_latest_vpww54_for_lmo(lmo, &self.db).await?;
+        let warnings_opt = self
+            .jma_feed
+            .get_latest_vpww54_for_lmo(lmo, &self.db)
+            .await?;
 
         let Some((warnings, xml_filename)) = warnings_opt else {
             // No entry in extra.xml for this LMO
@@ -72,13 +75,16 @@ impl WeatherChecker {
             }
 
             // Check for "no warnings" status
-            if warning.warning_kind.is_empty() && warning.status == "発表警報・注意報はなし" {
+            if warning.warning_kind.is_empty() && warning.status == "発表警報・注意報はなし"
+            {
                 tracing::info!(
                     "No active warnings for {} - {}, deleting old reports",
                     lmo,
                     warning.city
                 );
-                self.db.delete_city_reports_by_city(lmo, &warning.city).await?;
+                self.db
+                    .delete_city_reports_by_city(lmo, &warning.city)
+                    .await?;
                 continue;
             }
 
@@ -87,8 +93,14 @@ impl WeatherChecker {
                 continue;
             }
 
-            self.process_warning(lmo, &warning.city, &warning.warning_kind, &warning.status, &xml_filename)
-                .await?;
+            self.process_warning(
+                lmo,
+                &warning.city,
+                &warning.warning_kind,
+                &warning.status,
+                &xml_filename,
+            )
+            .await?;
         }
 
         Ok(())
@@ -157,7 +169,12 @@ impl WeatherChecker {
             }
             None => {
                 // New warning - send notification and create record
-                tracing::info!("New warning for {} - {}: {}", city, warning_kind, new_status);
+                tracing::info!(
+                    "New warning for {} - {}: {}",
+                    city,
+                    warning_kind,
+                    new_status
+                );
 
                 self.notifier
                     .send_warning_notification(city, warning_kind, new_status, lmo)

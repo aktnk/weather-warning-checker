@@ -1,9 +1,10 @@
-use sqlx::{SqlitePool, Row};
-use chrono::{DateTime, Utc};
-use crate::error::Result;
 use crate::config::Config;
+use crate::error::Result;
+use chrono::{DateTime, Utc};
+use sqlx::{Row, SqlitePool};
 
 #[derive(Debug, Clone, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct CityReport {
     pub id: Option<i64>,
     pub xml_file: String,
@@ -16,19 +17,13 @@ pub struct CityReport {
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct VPWW54Xml {
     pub id: Option<i64>,
     pub xml_file: String,
     pub lmo: String,
     pub created_at: Option<DateTime<Utc>>,
     pub is_delete: bool,
-}
-
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct Extra {
-    pub id: Option<i64>,
-    pub last_modified: String,
-    pub created_at: Option<DateTime<Utc>>,
 }
 
 pub struct Database {
@@ -119,9 +114,10 @@ impl Database {
     }
 
     // VPWW54xml table operations
+    #[allow(dead_code)]
     pub async fn get_vpww54_by_file(&self, xml_file: &str) -> Result<Option<VPWW54Xml>> {
         let record = sqlx::query_as::<_, VPWW54Xml>(
-            "SELECT * FROM vpww54xml WHERE xml_file = ? AND is_delete = 0"
+            "SELECT * FROM vpww54xml WHERE xml_file = ? AND is_delete = 0",
         )
         .bind(xml_file)
         .fetch_optional(&self.pool)
@@ -182,6 +178,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn soft_delete_city_report(&self, id: i64) -> Result<()> {
         sqlx::query("UPDATE city_report SET is_delete = 1 WHERE id = ?")
             .bind(id)
@@ -218,7 +215,7 @@ impl Database {
     pub async fn add_vpww54_xml(&self, lmo: &str, xml_file: &str) -> Result<()> {
         // Check if already exists
         let exists = sqlx::query(
-            "SELECT id FROM vpww54xml WHERE xml_file = ? AND lmo = ? AND is_delete = 0"
+            "SELECT id FROM vpww54xml WHERE xml_file = ? AND lmo = ? AND is_delete = 0",
         )
         .bind(xml_file)
         .bind(lmo)
@@ -268,7 +265,7 @@ impl Database {
         tracing::info!("Deleting all reports for {} - {}", lmo, city);
 
         sqlx::query(
-            "UPDATE city_report SET is_delete = 1 WHERE lmo = ? AND city = ? AND is_delete = 0"
+            "UPDATE city_report SET is_delete = 1 WHERE lmo = ? AND city = ? AND is_delete = 0",
         )
         .bind(lmo)
         .bind(city)
@@ -301,7 +298,7 @@ impl Database {
 
         // Get all XML files for this LMO
         let records = sqlx::query_as::<_, VPWW54Xml>(
-            "SELECT * FROM vpww54xml WHERE lmo = ? AND is_delete = 0"
+            "SELECT * FROM vpww54xml WHERE lmo = ? AND is_delete = 0",
         )
         .bind(lmo)
         .fetch_all(&self.pool)
@@ -339,6 +336,7 @@ impl Database {
 
     /// Get XML file from the latest city report
     /// Used to check if XML file has changed
+    #[allow(dead_code)]
     pub async fn get_city_report_xmlfile(
         &self,
         lmo: &str,

@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::database::Database;
 use crate::error::Result;
+use chrono::{Duration, Utc};
 use std::fs;
 use std::path::PathBuf;
-use chrono::{Utc, Duration};
 
 pub struct Cleanup {
     config: Config,
