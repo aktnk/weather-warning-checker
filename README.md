@@ -189,12 +189,23 @@ Monitored regions are configured in `config.yaml`:
 monitored_regions:
   - lmo: "静岡地方気象台"
     cities:
-      - "裾野市"
-      - "御殿場市"
+      - name: "裾野市"
+        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2222000"
+      - name: "御殿場市"
+        url: "https://www.jma.go.jp/bosai/warning/#lang=ja&area_type=class20s&area_code=2221500"
   - lmo: "金沢地方気象台"
     cities:
-      - "能登町"
+      - name: "能登町"
 ```
+
+Each city entry has the following fields:
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| `name` | City name as it appears in JMA warnings | **Yes** |
+| `url` | JMA warning page URL for this city | No |
+
+`url` is optional. If omitted, the notification email will link to the JMA national warnings page (`https://www.jma.go.jp/bosai/warning/`). The city-specific URL can be found at [JMA Warning Page](https://www.jma.go.jp/bosai/warning/) by navigating to the target city and copying the URL from the browser address bar.
 
 Set the config file path in `.env`:
 ```
