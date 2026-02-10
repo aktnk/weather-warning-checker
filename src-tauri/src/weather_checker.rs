@@ -4,6 +4,8 @@ use crate::error::Result;
 use crate::jma_feed::JMAFeed;
 use crate::notification::EmailNotifier;
 
+use chrono::{DateTime, Utc};
+
 pub struct WeatherChecker {
     db: Database,
     jma_feed: JMAFeed,
@@ -53,7 +55,7 @@ impl WeatherChecker {
             .get_latest_vpww54_for_lmo(lmo, &self.db)
             .await?;
 
-        let Some((warnings, xml_filename)) = warnings_opt else {
+        let Some((warnings, xml_filename, control_datetime)) = warnings_opt else {
             // No entry in extra.xml for this LMO
             // Delete cancelled warnings and associated XML records
             tracing::info!("No entry in extra.xml for {}, cleaning up old data", lmo);
@@ -102,6 +104,7 @@ impl WeatherChecker {
                 &warning.status,
                 &xml_filename,
                 jma_url,
+                &control_datetime,
             )
             .await?;
         }
@@ -109,6 +112,7 @@ impl WeatherChecker {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process_warning(
         &self,
         lmo: &str,
@@ -117,6 +121,7 @@ impl WeatherChecker {
         new_status: &str,
         xml_filename: &str,
         jma_url: Option<&str>,
+        control_datetime: &DateTime<Utc>,
     ) -> Result<()> {
         // Check if we already have a record for this lmo+city+warning combination
         let existing = self.db.get_city_report(lmo, city, warning_kind).await?;
@@ -135,7 +140,7 @@ impl WeatherChecker {
                     );
 
                     self.notifier
-                        .send_warning_notification(city, warning_kind, new_status, lmo, jma_url)
+                        .send_warning_notification(city, warning_kind, new_status, lmo, jma_url, control_datetime)
                         .await?;
 
                     // Update record with new status and xml_file
@@ -181,7 +186,7 @@ impl WeatherChecker {
                 );
 
                 self.notifier
-                    .send_warning_notification(city, warning_kind, new_status, lmo, jma_url)
+                    .send_warning_notification(city, warning_kind, new_status, lmo, jma_url, control_datetime)
                     .await?;
 
                 let report = CityReport {

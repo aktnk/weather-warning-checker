@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::error::Result;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, FixedOffset, Utc};
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
@@ -24,6 +24,7 @@ impl EmailNotifier {
         status: &str,
         lmo: &str,
         jma_url: Option<&str>,
+        control_datetime: &DateTime<Utc>,
     ) -> Result<()> {
         // Subject format: {city}:{warning}:{status}
         // Add "test:" prefix when RUST_LOG contains "debug"
@@ -37,9 +38,10 @@ impl EmailNotifier {
             base_subject
         };
 
-        // Get current timestamp
-        let now: DateTime<Local> = Local::now();
-        let timestamp = now.format("%Y/%m/%d %H:%M:%S").to_string();
+        // Convert control datetime (UTC) to JST for display, matching Python implementation
+        let jst = FixedOffset::east_opt(9 * 3600).unwrap();
+        let jst_datetime = control_datetime.with_timezone(&jst);
+        let timestamp = jst_datetime.format("%Y/%m/%d %H:%M:%S").to_string();
 
         // Get JMA URL for the city (use config URL or fall back to default)
         let resolved_url = jma_url.unwrap_or(DEFAULT_URL);

@@ -272,7 +272,8 @@ impl JMAFeed {
     }
 
     /// Download and parse a VPWW54 XML file
-    pub async fn fetch_vpww54(&self, url: &str, filename: &str) -> Result<Vec<WarningData>> {
+    /// Returns (warnings, control_datetime) where control_datetime is from <Control><DateTime>
+    pub async fn fetch_vpww54(&self, url: &str, filename: &str) -> Result<(Vec<WarningData>, DateTime<Utc>)> {
         // Check if file already exists in cache
         let file_path = PathBuf::from(&self.config.data_dir).join(filename);
 
@@ -295,7 +296,8 @@ impl JMAFeed {
 
     /// Parse VPWW54 XML format
     /// Extracts warning information from the JMA VPWW54 format
-    fn parse_vpww54(&self, xml_content: &str) -> Result<Vec<WarningData>> {
+    /// Returns (warnings, control_datetime) where control_datetime is from <Control><DateTime>
+    fn parse_vpww54(&self, xml_content: &str) -> Result<(Vec<WarningData>, DateTime<Utc>)> {
         use quick_xml::events::Event;
         use quick_xml::Reader;
 
@@ -502,7 +504,9 @@ impl JMAFeed {
 
         // Convert to legacy WarningData format for backward compatibility
         let mut result = Vec::new();
+        let mut control_datetime = Utc::now(); // fallback
         if let Some(data) = vpww54_data {
+            control_datetime = data.control.datetime;
             for warning in data.warnings {
                 if warning.kinds.is_empty() {
                     // No kinds means "発表警報・注意報はなし"
@@ -533,7 +537,7 @@ impl JMAFeed {
         }
 
         tracing::debug!("Parsed {} warnings from VPWW54 XML", result.len());
-        Ok(result)
+        Ok((result, control_datetime))
     }
 
     /// Get latest VPWW54 entry for a specific LMO (Local Meteorological Observatory)
@@ -543,12 +547,12 @@ impl JMAFeed {
     /// 3. Get the latest entry for the specified LMO
     /// 4. Download and parse the VPWW54 XML
     ///
-    /// Returns: Option<(warnings, xml_filename)>
+    /// Returns: Option<(warnings, xml_filename, control_datetime)>
     pub async fn get_latest_vpww54_for_lmo(
         &self,
         lmo: &str,
         db: &Database,
-    ) -> Result<Option<(Vec<WarningData>, String)>> {
+    ) -> Result<Option<(Vec<WarningData>, String, DateTime<Utc>)>> {
         tracing::info!("Fetching latest VPWW54 for LMO: {}", lmo);
 
         // Step 1: Fetch extra.xml with conditional request
@@ -590,7 +594,7 @@ impl JMAFeed {
         );
 
         // Step 4: Download and parse VPWW54 XML
-        let warnings = self
+        let (warnings, control_datetime) = self
             .fetch_vpww54(&latest_entry.url, &latest_entry.filename)
             .await?;
 
@@ -600,7 +604,7 @@ impl JMAFeed {
             lmo
         );
 
-        // Return warnings and XML filename (filename will be recorded in DB by caller)
-        Ok(Some((warnings, latest_entry.filename.clone())))
+        // Return warnings, XML filename, and control datetime
+        Ok(Some((warnings, latest_entry.filename.clone(), control_datetime)))
     }
 }
