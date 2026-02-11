@@ -27,6 +27,14 @@ All features have been implemented and tested. This application is **feature-com
   - Database integration
   - Notification triggering
   - LMO cleanup when no entry in extra.xml
+- **Resilience** - Two-layer architecture (code-level + OS-level):
+  - Enhanced logging (elapsed time, consecutive failure counter)
+  - Heartbeat file for external monitoring
+  - Startup notification email
+  - Graceful shutdown (SIGTERM/SIGINT handling)
+  - Crash recovery with OS-level auto-restart
+- **Deployment** - Service configurations for multiple platforms:
+  - systemd (Ubuntu), launchd (macOS), NSSM (Windows)
 
 ## Architecture
 
@@ -36,7 +44,9 @@ This is a **background service** application that runs continuously:
 Tauri App (Background Service)
 ├── Scheduler (tokio-cron-scheduler)
 │   ├── Weather check: Every 10 minutes
-│   └── Cleanup: Daily at 01:00
+│   ├── Cleanup: Daily at 01:00
+│   ├── Heartbeat file (data/heartbeat)
+│   └── Startup notification email
 ├── Database (SQLite via sqlx)
 │   ├── Extra (Last-Modified tracking)
 │   ├── VPWW54xml (XML file cache)
@@ -50,8 +60,13 @@ Tauri App (Background Service)
 │   ├── Compare and detect changes
 │   ├── Track XML file changes
 │   └── Clean up old data
-└── Notification (Gmail SMTP)
-    └── Send email on status change
+├── Notification (Gmail SMTP)
+│   ├── Send email on warning status change
+│   └── Send system notification (startup, etc.)
+└── Resilience
+    ├── Graceful shutdown (SIGTERM/SIGINT via CancellationToken)
+    ├── Crash recovery monitor (exit(1) for OS-level restart)
+    └── Enhanced logging (elapsed time, failure counter)
 ```
 
 ## Prerequisites
@@ -146,19 +161,12 @@ cargo build --release
 RUST_LOG=tauri_weather_checker=info ./target/release/tauri-weather-checker
 ```
 
-### Background Execution
+### Deployment as a Service
 
-```bash
-# Run in background with nohup
-cd src-tauri
-nohup ./target/release/tauri-weather-checker > /var/log/weather-checker.log 2>&1 &
+For production use, run as a system service with automatic restart and monitoring.
+Service configuration files for systemd (Ubuntu), launchd (macOS), and NSSM (Windows) are provided in the `deploy/` directory.
 
-# Check if running
-ps aux | grep tauri-weather-checker
-
-# Stop
-pkill tauri-weather-checker
-```
+See [deploy/README.md](deploy/README.md) for detailed setup instructions.
 
 ## Configuration
 
@@ -212,7 +220,7 @@ Set the config file path in `.env`:
 CONFIG_PATH=../config.yaml
 ```
 
-After modifying `config.yaml`, restart the application (no rebuild required).
+After modifying `config.yaml`, changes take effect on the next 10-minute check cycle (no restart or rebuild required).
 
 ## Project Structure
 
@@ -235,6 +243,17 @@ weather-warning-checker/
 │       ├── xml/              # XML cache
 │       ├── deleted/          # Deleted XML files
 │       └── weather.sqlite3   # Database
+├── deploy/
+│   ├── systemd/              # Ubuntu service files
+│   │   ├── weather-checker.service
+│   │   ├── weather-checker-watchdog.service
+│   │   └── weather-checker-watchdog.timer
+│   ├── launchd/              # macOS plist
+│   │   └── com.aktnk.weather-checker.plist
+│   ├── windows/              # Windows NSSM scripts
+│   │   ├── install.ps1
+│   │   └── uninstall.ps1
+│   └── README.md             # Deployment guide
 ├── config.yaml               # Monitored regions configuration
 ├── .env                      # Environment configuration
 ├── .env.example              # Example environment file
@@ -337,7 +356,6 @@ Future improvements:
 - **System tray menu** (icons needed)
 - **GUI configuration interface**
 - **Log file rotation**
-- **Systemd service integration**
 - **Auto-update mechanism**
 
 ## License
