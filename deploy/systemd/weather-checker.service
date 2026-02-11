@@ -1,0 +1,33 @@
+[Unit]
+Description=Weather Warning Checker Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=weather-checker
+WorkingDirectory=/opt/weather-checker
+EnvironmentFile=/opt/weather-checker/.env
+
+# Xvfb virtual display for Tauri/GTK (headless environment)
+# Requires: sudo apt install xvfb
+ExecStart=/usr/bin/xvfb-run --auto-servernum --server-args="-screen 0 1x1x8" /opt/weather-checker/tauri-weather-checker
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+
+# Logging (stdout/stderr -> journald)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=weather-checker
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/weather-checker/data
+
+[Install]
+WantedBy=multi-user.target

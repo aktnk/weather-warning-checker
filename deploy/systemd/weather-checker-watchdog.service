@@ -1,0 +1,21 @@
+[Unit]
+Description=Weather Checker Heartbeat Watchdog
+After=weather-checker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '\
+  HEARTBEAT_FILE=/opt/weather-checker/data/heartbeat; \
+  MAX_AGE_SECONDS=1800; \
+  if [ ! -f "$HEARTBEAT_FILE" ]; then \
+    echo "Heartbeat file not found, restarting weather-checker"; \
+    systemctl restart weather-checker.service; \
+    exit 0; \
+  fi; \
+  FILE_AGE=$(( $(date +%%s) - $(stat -c %%Y "$HEARTBEAT_FILE") )); \
+  if [ "$FILE_AGE" -gt "$MAX_AGE_SECONDS" ]; then \
+    echo "Heartbeat is ${FILE_AGE}s old (threshold: ${MAX_AGE_SECONDS}s), restarting weather-checker"; \
+    systemctl restart weather-checker.service; \
+  else \
+    echo "Heartbeat OK (age: ${FILE_AGE}s)"; \
+  fi'

@@ -1,0 +1,10 @@
+[Unit]
+Description=Weather Checker Heartbeat Watchdog Timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Unit=weather-checker-watchdog.service
+
+[Install]
+WantedBy=timers.target
